@@ -20,6 +20,7 @@ import {
 import type { FreeResult } from "../shared/numerology";
 import type { ForecastContent } from "../server/forecast";
 import { legalPages } from "./legal";
+import { appHref, currentPath, currentSearch, isStaticDemo } from "./runtime";
 import "./styles.css";
 
 function Star({ className = "" }: { className?: string }) {
@@ -194,7 +195,11 @@ function LoginDialog({
       </div>
       {config.demoAuth && (
         <div className="demo-login">
-          <p>Локальный деморежим — без регистрации и списаний.</p>
+          <p>
+            {isStaticDemo
+              ? "Визуальная демонстрация — без регистрации и списаний."
+              : "Локальный деморежим — без регистрации и списаний."}
+          </p>
           <button
             className="button secondary full"
             disabled={!!busy}
@@ -212,8 +217,9 @@ function LoginDialog({
       )}
       {error && <Notice error>{error}</Notice>}
       <p className="fine">
-        Продолжая вход, вы принимаете <a href="/legal/agreement">соглашение</a>{" "}
-        и ознакомлены с <a href="/legal/privacy">политикой обработки данных</a>.
+        Продолжая вход, вы принимаете{" "}
+        <a href={appHref("/legal/agreement")}>соглашение</a> и ознакомлены с{" "}
+        <a href={appHref("/legal/privacy")}>политикой обработки данных</a>.
       </p>
     </dialog>
   );
@@ -225,7 +231,7 @@ function App() {
   const [me, setMe] = useState<Me | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loginOpen, setLoginOpen] = useState(false);
-  const [path, setPath] = useState(location.pathname);
+  const [path, setPath] = useState(currentPath());
   const [birthDate, setBirthDate] = useState(
     () => sessionStorage.getItem("chisla_birth") || "",
   );
@@ -236,8 +242,8 @@ function App() {
   const [terms, setTerms] = useState(false);
   const resultRef = useRef<HTMLElement>(null);
   const navigate = useCallback((url: string) => {
-    history.pushState({}, "", url);
-    setPath(location.pathname);
+    history.pushState({}, "", appHref(url));
+    setPath(currentPath());
     window.scrollTo(0, 0);
   }, []);
   const refreshMe = useCallback(async () => {
@@ -265,12 +271,16 @@ function App() {
       setError("Не удалось проверить вход. Обновите страницу."),
     );
     const listener = () => {
-      setPath(location.pathname);
+      setPath(currentPath());
       setError("");
     };
     window.addEventListener("popstate", listener);
-    if (location.pathname === "/") telemetry("landing_view");
-    return () => window.removeEventListener("popstate", listener);
+    window.addEventListener("hashchange", listener);
+    if (currentPath() === "/") telemetry("landing_view");
+    return () => {
+      window.removeEventListener("popstate", listener);
+      window.removeEventListener("hashchange", listener);
+    };
   }, [refreshMe]);
   useEffect(() => {
     if (birthDate) sessionStorage.setItem("chisla_birth", birthDate);
@@ -279,6 +289,12 @@ function App() {
   useEffect(() => {
     if (path === "/account")
       void refreshMe().catch((e) => setError((e as Error).message));
+    if (isStaticDemo && path === "/" && /^#[a-z-]+$/.test(location.hash)) {
+      const frame = requestAnimationFrame(() =>
+        document.getElementById(location.hash.slice(1))?.scrollIntoView(),
+      );
+      return () => cancelAnimationFrame(frame);
+    }
   }, [path, refreshMe]);
   async function calculate(e: FormEvent) {
     e.preventDefault();
@@ -337,7 +353,7 @@ function App() {
       });
       sessionStorage.removeItem("chisla_purchase");
       if (order.paymentUrl) {
-        location.assign(order.paymentUrl);
+        location.assign(appHref(order.paymentUrl));
         return;
       }
       await refreshMe();
@@ -363,12 +379,22 @@ function App() {
   const isHome = path === "/";
   return (
     <>
-      <a className="skip-link" href="#main">
+      <a
+        className="skip-link"
+        href="#main"
+        onClick={(e) => {
+          if (isStaticDemo) {
+            e.preventDefault();
+            document.getElementById("main")?.focus();
+            document.getElementById("main")?.scrollIntoView();
+          }
+        }}
+      >
         К содержанию
       </a>
       <header className="site-header">
         <a
-          href="/"
+          href={appHref("/")}
           className="brand"
           onClick={(e) => {
             e.preventDefault();
@@ -379,9 +405,9 @@ function App() {
           <span>числа</span>
         </a>
         <nav aria-label="Главная навигация">
-          <a href="/#how">Как это работает</a>
-          <a href="/#weekly">Прогноз на неделю</a>
-          <a href="/#faq">Вопросы</a>
+          <a href={appHref("/#how")}>Как это работает</a>
+          <a href={appHref("/#weekly")}>Прогноз на неделю</a>
+          <a href={appHref("/#faq")}>Вопросы</a>
         </nav>
         <button
           className="header-login"
@@ -394,13 +420,17 @@ function App() {
       {config && (config.paymentMode === "mock" || !config.livePayments) && (
         <div className="demo-bar">
           <span className="status-dot" />
-          {config.paymentMode === "mock"
-            ? "Деморежим · Оплата без списаний"
-            : "Тестовый магазин ЮKassa · Реальные списания отключены"}
-          {config.aiMode === "mock" && " · Локальный пример прогноза"}
+          {isStaticDemo
+            ? "Визуальное демо · Данные только в этом браузере · Оплата без списаний"
+            : config.paymentMode === "mock"
+              ? "Деморежим · Оплата без списаний"
+              : "Тестовый магазин ЮKassa · Реальные списания отключены"}
+          {!isStaticDemo &&
+            config.aiMode === "mock" &&
+            " · Локальный пример прогноза"}
         </div>
       )}
-      <main id="main">
+      <main id="main" tabIndex={-1}>
         {configError && (
           <div className="container">
             <Notice error>{configError}</Notice>
@@ -425,7 +455,13 @@ function App() {
                   <br className="desktop-break" /> с новой, неожиданной стороны.
                 </p>
                 <form onSubmit={calculate} className="calculator-form">
-                  <BirthInput value={birthDate} onChange={value => { setBirthDate(value); setResult(null); }} />
+                  <BirthInput
+                    value={birthDate}
+                    onChange={(value) => {
+                      setBirthDate(value);
+                      setResult(null);
+                    }}
+                  />
                   <button
                     className="button primary"
                     type="submit"
@@ -698,7 +734,7 @@ function App() {
                   Войдите, чтобы сохранить дату рождения и получить доступ к
                   своим прогнозам.
                 </p>
-                {new URLSearchParams(location.search).has("auth_error") && (
+                {new URLSearchParams(currentSearch()).has("auth_error") && (
                   <Notice error>
                     Не удалось войти через провайдера. Проверьте доступ к
                     аккаунту или выберите другой способ.
@@ -739,7 +775,7 @@ function App() {
                         <span>
                           Принимаю{" "}
                           <a
-                            href="/legal/service"
+                            href={appHref("/legal/service")}
                             target="_blank"
                             rel="noreferrer"
                           >
@@ -747,7 +783,7 @@ function App() {
                           </a>{" "}
                           и{" "}
                           <a
-                            href="/legal/agreement"
+                            href={appHref("/legal/agreement")}
                             target="_blank"
                             rel="noreferrer"
                           >
@@ -755,7 +791,7 @@ function App() {
                           </a>
                           ; ознакомлен с{" "}
                           <a
-                            href="/legal/privacy"
+                            href={appHref("/legal/privacy")}
                             target="_blank"
                             rel="noreferrer"
                           >
@@ -824,7 +860,7 @@ function App() {
         ) : (
           <div className="container page empty-card">
             <h1>Эта страница не найдена</h1>
-            <a className="button primary" href="/">
+            <a className="button primary" href={appHref("/")}>
               На главную
               <Arrow />
             </a>
@@ -833,7 +869,7 @@ function App() {
       </main>
       <footer className="site-footer container">
         <div className="footer-main">
-          <a href="/" className="brand">
+          <a href={appHref("/")} className="brand">
             <Star />
             <span>числа</span>
           </a>
@@ -843,10 +879,12 @@ function App() {
             Найдите время прислушаться.
           </p>
           <div className="footer-links">
-            <a href="/legal/privacy">Политика обработки данных</a>
-            <a href="/legal/agreement">Пользовательское соглашение</a>
-            <a href="/legal/service">Условия платной услуги</a>
-            <a href="/legal/contacts">Контакты и возвраты</a>
+            <a href={appHref("/legal/privacy")}>Политика обработки данных</a>
+            <a href={appHref("/legal/agreement")}>
+              Пользовательское соглашение
+            </a>
+            <a href={appHref("/legal/service")}>Условия платной услуги</a>
+            <a href={appHref("/legal/contacts")}>Контакты и возвраты</a>
           </div>
         </div>
         <div className="footer-bottom">
@@ -898,7 +936,7 @@ function Account({
   const [deleting, setDeleting] = useState(false);
   const [confirmation, setConfirmation] = useState("");
   useEffect(() => {
-    const id = new URLSearchParams(location.search).get("order");
+    const id = new URLSearchParams(currentSearch()).get("order");
     if (id)
       void api(`/api/orders/${id}/sync`, "POST", {})
         .then(refresh)
@@ -928,7 +966,7 @@ function Account({
         {},
       );
       if (type === "checkout" && data.paymentUrl)
-        location.assign(data.paymentUrl);
+        location.assign(appHref(data.paymentUrl));
       else await refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -1105,8 +1143,9 @@ function Account({
       </section>
       {config?.demoAuth && (
         <p className="fine">
-          Демо-аккаунт привязан к текущему браузеру. После выхода для него нет
-          способа повторного входа.
+          {isStaticDemo
+            ? "Это тестовые данные в текущей вкладке браузера. Демо-вход снова откроет этот пример; OAuth и база данных не используются."
+            : "Демо-аккаунт привязан к текущему браузеру. После выхода для него нет способа повторного входа."}
         </p>
       )}
     </>
@@ -1273,7 +1312,7 @@ function ForecastPage({
       {order && order.status !== "paid" && (
         <Notice>
           Оплата ещё не подтверждена.{" "}
-          <a href="/account">Проверьте статус в кабинете.</a>
+          <a href={appHref("/account")}>Проверьте статус в кабинете.</a>
         </Notice>
       )}
       {order?.status === "paid" && !content && (
@@ -1382,11 +1421,13 @@ function LegalPage({ id, draft }: { id: string; draft: boolean }) {
     <article className="container page legal-page">
       <p className="eyebrow">ДОКУМЕНТЫ · РЕДАКЦИЯ 16 ОКТЯБРЯ 2026</p>
       <h1 className="page-title">{page.title}</h1>
-      {draft && <Notice>
-        Шаблон для редактирования. Реквизиты и отдельные условия не заполнены.
-        Владелец должен проверить и опубликовать окончательную редакцию до
-        приёма реальных платежей.
-      </Notice>}
+      {draft && (
+        <Notice>
+          Шаблон для редактирования. Реквизиты и отдельные условия не заполнены.
+          Владелец должен проверить и опубликовать окончательную редакцию до
+          приёма реальных платежей.
+        </Notice>
+      )}
       {page.sections.map((section) => (
         <section key={section.title}>
           <h2>{section.title}</h2>

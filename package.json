@@ -9,6 +9,9 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env --import tsx server/index.ts",
     "build": "tsc --noEmit && node scripts/build-client.mjs && tsc -p tsconfig.server.json",
+    "build:demo": "tsc --noEmit && node scripts/build-demo.mjs",
+    "preview:demo": "vite preview --mode pages-demo --host 127.0.0.1",
+    "check:demo": "node scripts/check-demo.mjs",
     "start": "node --env-file-if-exists=.env dist/server/server/index.js",
     "test": "node --import tsx --test --test-concurrency=1 tests/*.test.ts",
     "backup": "node --env-file-if-exists=.env scripts/backup.mjs",

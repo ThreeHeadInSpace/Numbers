@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Parameters } from "../shared/numerology.js";
-import { interpretations } from "../shared/numerology.js";
+import { mockForecast } from "../shared/mock-forecast.js";
+export { mockForecast } from "../shared/mock-forecast.js";
 import type { Config } from "./config.js";
 
 const text = z.string().min(20).max(7000);
@@ -22,25 +23,6 @@ export const forecastSchema = z.object({
   conclusion: text,
 });
 export type ForecastContent = z.infer<typeof forecastSchema>;
-
-export function mockForecast(params: Parameters): ForecastContent {
-  return {
-    theme: `Демонстрационный прогноз. Тема недели — «${interpretations[params.lifePath].title.toLowerCase()}». Попробуйте присмотреться к привычному ритму и выбрать одно намерение на ближайшие семь дней. Этот текст подготовлен локально, без обращения к ИИ.`,
-    numbers: `Число жизненного пути ${params.lifePath} здесь используется как символическая отправная точка. ${interpretations[params.lifePath].paragraphs.join(" ")}`,
-    work: "Начните неделю с короткого списка важных дел. Выберите задачу, которую можно завершить за один спокойный подход. Оставьте время на неожиданные изменения и оценивайте нагрузку по своим реальным возможностям.",
-    relationships:
-      "Обратите внимание на качество небольших разговоров. Уточняйте, правильно ли вы поняли собеседника, и говорите о своих желаниях прямо и бережно. Для тёплого общения не нужен особенный повод.",
-    energy:
-      "Прислушивайтесь к своему состоянию в течение дня. Небольшие паузы, прогулка или спокойный вечер могут стать способом переключиться. Выбирайте то, что подходит именно вам, без обязательных правил.",
-    days: params.days.map((day) => ({
-      date: day.date,
-      title: interpretations[day.personalDay].words[0],
-      text: `Символическое число дня — ${day.personalDay}. ${interpretations[day.personalDay].paragraphs[0]} В качестве небольшого эксперимента запишите вечером одно наблюдение, которое захотелось сохранить.`,
-    })),
-    conclusion:
-      "Воспринимайте этот материал как повод для самонаблюдения. Вы можете выбрать одну подходящую идею, а остальное оставить. Решения и темп остаются за вами; числа не определяют события вашей жизни.",
-  };
-}
 
 export async function generateForecast(
   config: Config,

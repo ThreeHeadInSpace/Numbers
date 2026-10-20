@@ -1,4 +1,7 @@
 import type { ForecastContent } from "../server/forecast.js";
+import { ApiError } from "./api-error";
+import { isStaticDemo } from "./runtime";
+export { ApiError } from "./api-error";
 export type PublicConfig = {
   price: number;
   paymentMode: string;
@@ -31,19 +34,15 @@ export type Me = {
   birthDate: string | null;
   orders: Order[];
 };
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-  ) {
-    super(message);
-  }
-}
 export async function api<T>(
   path: string,
   method = "GET",
   body?: unknown,
 ): Promise<T> {
+  if (isStaticDemo) {
+    const { demoApi } = await import("./demo/api");
+    return demoApi(path, method, body) as Promise<T>;
+  }
   const res = await fetch(path, {
     method,
     credentials: "same-origin",

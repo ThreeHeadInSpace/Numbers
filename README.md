@@ -1,5 +1,7 @@
 # Числа
 
+Визуальная демоверсия на GitHub Pages собирается отдельно: `npm run build:demo`. [Инструкция, ограничения деморежима и настройка публикации](GITHUB_PAGES.md). Обычная серверная архитектура и production-команды сохранены.
+
 MVP нумерологического веб-сервиса: React + Vite + TypeScript, Hono, Better Auth, SQLite, ЮKassa и DeepSeek (`deepseek-flash`). Один процесс Node.js обслуживает API и собранный frontend. Регион целевого размещения — Россия, Amvera.
 
 ## Быстрый локальный запуск

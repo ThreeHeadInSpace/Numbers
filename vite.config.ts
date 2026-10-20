@@ -1,6 +1,13 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
-  build: { outDir: "dist/client" },
-});
+  ...(mode === "pages-demo"
+    ? {
+        base: "/Numbers/",
+        envDir: false,
+        envPrefix: [],
+        build: { outDir: "dist/pages" },
+      }
+    : { build: { outDir: "dist/client" } }),
+}));
