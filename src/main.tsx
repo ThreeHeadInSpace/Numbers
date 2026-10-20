@@ -273,6 +273,10 @@ function App() {
     const listener = () => {
       setPath(currentPath());
       setError("");
+      if (isStaticDemo) {
+        setLoginOpen(false);
+        if (location.hash.startsWith("#/")) window.scrollTo(0, 0);
+      }
     };
     window.addEventListener("popstate", listener);
     window.addEventListener("hashchange", listener);
